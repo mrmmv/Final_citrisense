@@ -37,7 +37,7 @@ function renderIcons() {
 
 const LOGIN_TRANSLATIONS = {
   en: {
-    title: 'KILATIS Mobile AI',
+    title: 'CitriSense Mobile AI',
     subtitle: '360° Citrus Health & Agronomy Portal',
     email: 'Farmer Email Address',
     pass: 'Password',
@@ -54,7 +54,7 @@ const LOGIN_TRANSLATIONS = {
     creating: 'Creating Account...'
   },
   fil: {
-    title: 'KILATIS Mobile AI',
+    title: 'CitriSense Mobile AI',
     subtitle: '360° Pagsusuri sa Kalusugan ng Calamansi',
     email: 'Email ng Magsasaka',
     pass: 'Password',

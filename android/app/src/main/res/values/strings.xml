@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">KILATIS Citrus AI</string>
-    <string name="title_activity_main">KILATIS Citrus AI</string>
+    <string name="app_name">CitriSense</string>
+    <string name="title_activity_main">CitriSense</string>
     <string name="package_name">com.kilatis.citrusapp</string>
     <string name="custom_url_scheme">com.kilatis.citrusapp</string>
 </resources>

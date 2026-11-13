@@ -181,7 +181,7 @@ const TRANSLATIONS = {
     'modal-save': 'Save Settings',
 
     // Mobile Manual Translations
-    'manual-hero-title': 'KILATIS System Manual',
+    'manual-hero-title': 'CitriSense System Manual',
     'manual-hero-desc': 'Handheld Gun Bio-AI foliar diagnostic scanner with precision disease severity rating and climate-smart organic care for Calamansi citrus.',
     'manual-badge-status': 'Active',
     'manual-feat-heading': 'System Features',
@@ -245,12 +245,12 @@ const TRANSLATIONS = {
     'history-reports-count': 'Reports',
 
     // Brand Hub Menu (EN)
-    'brand-hub-title': 'KILATIS Navigation Hub',
+    'brand-hub-title': 'CitriSense Navigation Hub',
     'brand-hub-sub': 'Quick Screen & Feature Access',
     'menu-desc-scan': 'Live gun foliar camera & Gemini AI pathology with severity rating',
     'menu-desc-history': 'Cloud-saved scans, timestamps, & delete records',
     'menu-desc-agronomy': 'Natural DIY fertilizers, spray delays & irrigation logic',
-    'menu-desc-manual': 'How KILATIS Gun works, hardware specs & operating guide',
+    'menu-desc-manual': 'How CitriSense Gun works, hardware specs & operating guide',
     'menu-desc-presets': 'Healthy, Canker, Scab, Melanose, Chlorosis, & Scale',
     'menu-desc-settings': 'Auto-scan times, interval triggers, and device sync'
   },
@@ -306,7 +306,7 @@ const TRANSLATIONS = {
     'modal-save': 'I-save ang Setting',
 
     // Mobile Manual Translations (Filipino)
-    'manual-hero-title': 'Patnubay sa KILATIS Gun',
+    'manual-hero-title': 'Patnubay sa CitriSense Gun',
     'manual-hero-desc': 'Hawak-kamay na bio-optic scanner na may pagsusuri sa lalâ ng sakit at organikong lunas para sa tanim na Calamansi.',
     'manual-badge-status': 'Aktibo',
     'manual-feat-heading': 'Mga Katangian',
@@ -369,7 +369,7 @@ const TRANSLATIONS = {
     'history-reports-count': 'Mga Ulat',
 
     // Brand Hub Menu (FIL)
-    'brand-hub-title': 'Navigasyon ng KILATIS',
+    'brand-hub-title': 'Navigasyon ng CitriSense',
     'brand-hub-sub': 'Mabilisang Paglipat ng Menu at Gamit',
     'menu-desc-scan': 'Live gun foliar camera at Gemini AI na pagsusuri na may severity meter',
     'menu-desc-history': 'Naka-save na mga scan, oras, at pagbura ng ulat',
@@ -1283,8 +1283,8 @@ async function runGeminiAnalysis() {
     state.analysis.healthScore = 0;
     state.analysis.statusText = { en: 'No Target Image Captured', fil: 'Walang Larawang Nakunan' };
     state.analysis.summaryText = {
-      en: 'Please capture a single leaf photo using the Kilatis Gun trigger or upload a Calamansi leaf photo before running Gemini AI analysis.',
-      fil: 'Mangyaring kumuha muna gamit ang Kilatis Gun trigger o mag-upload ng larawan ng dahon ng Calamansi bago magsuri.'
+      en: 'Please capture a single leaf photo using the CitriSense Gun trigger or upload a Calamansi leaf photo before running Gemini AI analysis.',
+      fil: 'Mangyaring kumuha muna gamit ang CitriSense Gun trigger o mag-upload ng larawan ng dahon ng Calamansi bago magsuri.'
     };
     state.analysis.severity = 'None';
     state.analysis.severityPercent = 0;
@@ -1716,8 +1716,8 @@ Note: leafTagClass and fruitTagClass must be one of: 'tag-healthy', 'tag-warning
         const p = PRESETS[state.activePreset];
         const scanDocId = generateScanDocId([{ img: activeImg }], now);
         await setDoc(doc(db, 'scans', scanDocId), {
-          userEmail: state.currentUser ? state.currentUser.email : 'farmer@kilatis.ai',
-          rpiName: state.rpiName || 'Kilatis Gun Scanner',
+          userEmail: state.currentUser ? state.currentUser.email : 'farmer@citrisense.ai',
+          rpiName: state.rpiName || 'CitriSense Gun Scanner',
           location: state.location || 'Mindoro, Philippines',
           weather: state.weather,
           preset: state.activePreset || 'gun_ai_scan',
@@ -1992,7 +1992,7 @@ async function syncToFirestore(source = 'android') {
       severityStage: a?.severityStage || '',
       severityRecommendations: a?.severityRecommendations || null,
       statusText: a?.statusText || { en: 'No Scan Performed', fil: 'Walang Pagsusuri' },
-      summaryText: a?.summaryText || { en: 'No scan data available yet. Use the Kilatis Gun scanner or upload a photo to run Gemini AI analysis.', fil: 'Wala pang datos ng scan. Gamitin ang Kilatis Gun scanner o mag-upload ng larawan upang masuri ng Gemini AI.' },
+      summaryText: a?.summaryText || { en: 'No scan data available yet. Use the CitriSense Gun scanner or upload a photo to run Gemini AI analysis.', fil: 'Wala pang datos ng scan. Gamitin ang CitriSense Gun scanner o mag-upload ng larawan upang masuri ng Gemini AI.' },
       leafStatus: a?.leafStatus || { en: 'Awaiting Scan', fil: 'Naghihintay ng Scan' },
       leafTagClass: a?.leafTagClass || (a?.healthScore === 0 ? 'tag-dimmed' : 'tag-healthy'),
       leafFindings: a?.leafFindings || { en: ['No leaf scan data available yet.'], fil: ['Wala pang datos sa pagsusuri ng dahon.'] },

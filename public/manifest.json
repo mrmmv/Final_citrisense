@@ -1,15 +1,15 @@
 {
-  "short_name": "KILATIS",
-  "name": "KILATIS - 360° Citrus Health AI",
+  "short_name": "CitriSense",
+  "name": "CitriSense - Bio-AI Citrus Health",
   "icons": [
     {
-      "src": "/kilatis-emblem.png",
+      "src": "/citrisense-emblem.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/kilatis-logo.png",
+      "src": "/citrisense-logo-full.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"

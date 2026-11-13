@@ -1,6 +1,6 @@
 {
   "appId": "com.kilatis.citrusapp",
-  "appName": "KILATIS Citrus AI",
+  "appName": "CitriSense",
   "webDir": "dist",
   "bundledWebRuntime": false,
   "server": {

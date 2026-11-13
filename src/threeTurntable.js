@@ -246,7 +246,7 @@ export function create3DTurntable(containerId) {
 
     hudCtx.fillStyle = '#000000';
     hudCtx.font = 'bold 22px sans-serif';
-    hudCtx.fillText(`KILATIS 360° VISION — ${angleText.toUpperCase()}`, 20, 38);
+    hudCtx.fillText(`CitriSense VISION — ${angleText.toUpperCase()}`, 20, 38);
 
     hudCtx.fillStyle = '#64748b';
     hudCtx.font = '18px sans-serif';
