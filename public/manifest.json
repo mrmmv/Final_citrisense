@@ -1,0 +1,23 @@
+{
+  "short_name": "KILATIS",
+  "name": "KILATIS - 360° Citrus Health AI",
+  "icons": [
+    {
+      "src": "/kilatis-emblem.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/kilatis-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "start_url": "/index.html",
+  "background_color": "#090e1a",
+  "theme_color": "#10b981",
+  "display": "standalone",
+  "orientation": "portrait"
+}

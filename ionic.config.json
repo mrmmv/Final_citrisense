@@ -1,0 +1,7 @@
+{
+  "name": "KILATIS Citrus AI",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "custom"
+}
