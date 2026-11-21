@@ -574,6 +574,7 @@ const state = {
   activeAngleIndex: 0,
   isScanning: false,
   rpiName: localStorage.getItem('calamansi_rpi_name') || 'RPi Gun Scanner 1',
+  rpiIp: localStorage.getItem('calamansi_rpi_ip') || '192.168.254.105',
   location: localStorage.getItem('calamansi_location') || 'Manila, Philippines',
   activePreset: '',
   targetImage: '',
@@ -811,6 +812,28 @@ function initAngleSelector() {
   if (analyzeBtn) analyzeBtn.addEventListener('click', runGeminiAnalysis);
 }
 
+let gunTriggerTimeoutId = null;
+
+function restoreGunTriggerUI(badgeTextEn, badgeTextFil, badgeClass = 'tag-healthy') {
+  if (gunTriggerTimeoutId) {
+    clearTimeout(gunTriggerTimeoutId);
+    gunTriggerTimeoutId = null;
+  }
+  state.isScanning = false;
+  const btn = document.getElementById('start-gun-trigger-btn') || document.getElementById('start-360-scan-btn');
+  const badge = document.getElementById('gun-status-badge') || document.getElementById('motor-status-badge');
+  const isFil = state.lang === 'fil';
+  if (btn) {
+    btn.disabled = false;
+    btn.innerHTML = `<i data-lucide="crosshair"></i> <span data-i18n="btn-pull-gun-trigger">${isFil ? 'IPUTOK ANG GATILYO / KUHA SA SCANNER' : 'PULL TRIGGER / CAPTURE FROM GUN'}</span>`;
+    renderIcons();
+  }
+  if (badge && badgeTextEn) {
+    badge.textContent = isFil ? (badgeTextFil || badgeTextEn) : badgeTextEn;
+    badge.className = `badge-tag ${badgeClass}`;
+  }
+}
+
 async function runGunTriggerCapture() {
   if (state.isScanning) return;
   state.isScanning = true;
@@ -846,17 +869,22 @@ async function runGunTriggerCapture() {
       source: 'android'
     }, { merge: true });
   } catch (err) {
-    console.warn('[KILATIS Mobile] Firestore command notice:', err);
+    console.warn('[CitriSense Mobile] Firestore command notice:', err);
   }
 
   // 2. Direct LAN trigger if RPi is on same Wi-Fi
   let directLanResult = null;
+  const targetRpiIp = (state.rpiIp || '192.168.254.105').trim();
   try {
-    const lanRes = await fetch('http://192.168.0.115:5000/api/gun/trigger', {
+    const controller = new AbortController();
+    const tid = setTimeout(() => controller.abort(), 12000);
+    const lanRes = await fetch(`http://${targetRpiIp}:5000/api/gun/trigger`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ lang: state.lang })
+      body: JSON.stringify({ lang: state.lang }),
+      signal: controller.signal
     });
+    clearTimeout(tid);
     if (lanRes.ok) {
       directLanResult = await lanRes.json();
     }
@@ -865,43 +893,41 @@ async function runGunTriggerCapture() {
   if (directLanResult && directLanResult.image) {
     setGunCapturedImage(directLanResult.image);
     if (directLanResult.diagnosis) {
-      state.analysis = Object.assign({}, state.analysis, directLanResult.diagnosis);
+      const diag = directLanResult.diagnosis;
+      const isCal = diag.isCalamansi !== false && (diag.healthScore || diag.score || 0) > 0;
+      const diseaseStr = typeof diag.diseaseIdentified === 'object'
+        ? (diag.diseaseIdentified.en || diag.diseaseIdentified.fil || 'Calamansi Scan')
+        : (diag.diseaseIdentified || diag.disease || 'Calamansi Scan');
+      applyScanDataToState({
+        image: directLanResult.image,
+        targetImage: directLanResult.image,
+        isCalamansi: isCal,
+        healthScore: isCal ? (diag.healthScore || diag.score || 0) : 0,
+        severity: diag.severity || 'None',
+        severityPercent: diag.affectedAreaPercentage ?? diag.severityPercent ?? 0,
+        severityStage: diag.severityStage || '',
+        severityRecommendations: diag.severityRecommendations || null,
+        statusText: diag.statusText || (isCal ? { en: diseaseStr, fil: diseaseStr } : { en: 'Invalid Target (Not Calamansi / Soil)', fil: 'Hindi Calamansi o Lupa (Maling Kuha)' }),
+        summaryText: diag.summaryText || diag.summary || null,
+        organicRecs: diag.organicRecs || [],
+        disease: diseaseStr,
+        source: 'rpi_gun'
+      }, true);
     }
-    state.isScanning = false;
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = `<i data-lucide="crosshair"></i> <span data-i18n="btn-pull-gun-trigger">${isFil ? 'GATILYO / KUHA SA SCANNER' : 'PULL TRIGGER / CAPTURE FROM GUN'}</span>`;
-      renderIcons();
-    }
-    if (badge) {
-      badge.textContent = isFil ? 'Nakuha ang Larawan' : 'Gun Captured (1-Shot)';
-      badge.className = 'badge-tag tag-healthy';
-    }
+    restoreGunTriggerUI('Gun Captured (1-Shot)', 'Nakuha ang Larawan', 'tag-healthy');
     renderReportUI();
     syncToFirestore('android');
     return;
   }
 
-  // Simulation / Cloud Trigger Animation (1.5 seconds)
-  setTimeout(() => {
-    state.isScanning = false;
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = `<i data-lucide="crosshair"></i> <span data-i18n="btn-pull-gun-trigger">${isFil ? 'GATILYO / KUHA SA SCANNER' : 'PULL TRIGGER / CAPTURE FROM GUN'}</span>`;
-      renderIcons();
+  // 3. Otherwise wait for Raspberry Pi to finish capturing and push via Cloud Firestore onSnapshot.
+  // Do NOT overwrite Firestore with a stale local frame! Just provide a 30s safety timeout.
+  if (gunTriggerTimeoutId) clearTimeout(gunTriggerTimeoutId);
+  gunTriggerTimeoutId = setTimeout(() => {
+    if (state.isScanning) {
+      restoreGunTriggerUI('Gun Ready (Check Wi-Fi)', 'Handa (Suriin ang Wi-Fi)', 'tag-warning');
     }
-    if (badge) {
-      badge.textContent = isFil ? 'Handa ang Scanner' : 'Gun Armed (1-Shot)';
-      badge.className = 'badge-tag tag-healthy';
-    }
-
-    // If no target image is loaded yet, load realistic field capture
-    if (!state.targetImage) {
-      setGunCapturedImage('/calamansi_canker.png');
-    }
-    runGeminiAnalysis();
-    syncToFirestore('android');
-  }, 1600);
+  }, 30000);
 }
 
 function setGunCapturedImage(imageSrc) {
@@ -1354,8 +1380,9 @@ async function runGeminiAnalysis() {
     const promptText = `You are an expert precision plant pathologist and computer vision agronomist specializing strictly in Philippine Calamansi (Citrus microcarpa / Citrofortunella microcarpa) citrus trees, foliar canopies, and citrus fruits.
 
 MANDATORY TARGET VALIDATION RULE:
-First, inspect the provided image carefully. You must verify whether the image shows genuine Calamansi citrus tree components (leaves, twigs, fruits, flowers, tree canopy) or orchard soil surrounding a citrus tree.
-- IF the image DOES NOT contain a Calamansi citrus tree or its orchard environment (e.g. human face/body, room interior, animal, household items, electronics, furniture, vehicle, random indoor objects, or an unrelated non-citrus plant):
+First, inspect the provided image carefully. You must verify whether the image shows genuine Calamansi citrus components (leaves, twigs, fruits, flowers, tree canopy, picked fruits/leaves on a hand/table/hood, close-up macro field scans, or reference test photos of Calamansi) or orchard soil surrounding a citrus tree.
+- Accept close-up single leaves or single Calamansi fruits (green or yellow-orange small round citrus fruits, winged petioles, glossy citrus leaves) even when no tree trunk or soil is visible in the frame.
+- ONLY set "isCalamansi": false if the image has NO citrus leaves or citrus fruits at all (e.g. human face/body alone, room interior, animal, electronics, furniture, vehicle, blank wall, or an unrelated non-citrus plant):
   1. Set "isCalamansi": false.
   2. Set "healthScore": 0.
   3. Set "statusText": { "en": "Invalid Target (Not Calamansi / Soil)", "fil": "Hindi Calamansi o Lupa (Maling Kuha)" }.
@@ -2145,7 +2172,9 @@ function applyScanDataToState(data, saveToCache = true) {
 
   if (data.healthScore !== undefined && data.healthScore !== null) {
     state.analysis.healthScore = data.healthScore;
-    state.analysis.isCalamansi = data.healthScore > 0;
+    state.analysis.isCalamansi = data.isCalamansi !== undefined
+      ? Boolean(data.isCalamansi) && data.healthScore > 0
+      : data.healthScore > 0;
     const scoreVal = document.getElementById('health-score-val');
     if (scoreVal) scoreVal.textContent = `${data.healthScore}%`;
     const circle = document.getElementById('health-score-circle');
@@ -2187,10 +2216,17 @@ function applyScanDataToState(data, saveToCache = true) {
       statusEl.textContent = typeof data.statusText === 'object' ? (data.statusText[state.lang] || data.statusText.en) : data.statusText;
     }
   } else if (data.disease) {
-    state.analysis.diseaseIdentified = data.disease;
-    state.analysis.statusText = { en: data.disease, fil: data.disease };
+    let cleanDisease = data.disease;
+    if (typeof cleanDisease === 'object') {
+      cleanDisease = cleanDisease[state.lang] || cleanDisease.en || cleanDisease.fil || 'Calamansi Scan';
+    } else if (typeof cleanDisease === 'string' && cleanDisease.trim().startsWith('{')) {
+      const m = cleanDisease.match(/'en':\s*'([^']+)'/);
+      if (m) cleanDisease = m[1];
+    }
+    state.analysis.diseaseIdentified = cleanDisease;
+    state.analysis.statusText = { en: cleanDisease, fil: cleanDisease };
     const statusEl = document.getElementById('health-status-heading');
-    if (statusEl) statusEl.textContent = data.disease;
+    if (statusEl) statusEl.textContent = cleanDisease;
   }
   if (data.summaryText) {
     state.analysis.summaryText = data.summaryText;
@@ -2336,10 +2372,22 @@ function initRealtimeSync() {
         const hasIncomingImages = Boolean(data.image || data.targetImage) || (data.quadrants && Array.isArray(data.quadrants) && data.quadrants.some(q => q && q.img && q.img.trim() !== ''));
         const hasIncomingScore = data.healthScore !== undefined && data.healthScore !== null && data.healthScore > 0;
 
-        // Sync whenever incoming data has valid scan data or source is remote
+        // Ignore our own active gun_capture echo while waiting for the RPi response
+        if (data.source === 'android' && data.isScanning && data.command === 'gun_capture') {
+          return;
+        }
+
+        // Sync whenever incoming data is from RPi / remote, or fills an empty local state
         if (data.source !== 'android' || (state.analysis.healthScore === 0 && hasIncomingScore)) {
           isReceivingRemoteSync = true;
           console.log('[Auto-Sync Android] Applied real-time sync:', data);
+          if (data.source === 'rpi_gun' || data.command === 'completed') {
+            restoreGunTriggerUI(
+              hasIncomingScore ? 'Gun Synced (1-Shot)' : 'Scan Received',
+              hasIncomingScore ? 'Nakuha sa Gun Scanner' : 'Natanggap ang Kuha',
+              hasIncomingScore ? 'tag-healthy' : 'tag-warning'
+            );
+          }
           applyScanDataToState(data, true);
           setTimeout(() => { isReceivingRemoteSync = false; }, 500);
         }
