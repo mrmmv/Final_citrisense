@@ -708,6 +708,33 @@
       </div>
     </div>
 
+    <!-- History Scan Detail Modal (Native Top-Layer Dialog) -->
+    <dialog id="history-detail-dialog" class="history-detail-dialog" closedby="any" aria-labelledby="history-detail-title">
+      <div class="history-detail-header">
+        <div>
+          <div class="history-detail-eyebrow" id="history-detail-date">Saved Report</div>
+          <h3 id="history-detail-title" class="history-detail-heading">Scan Details</h3>
+        </div>
+        <form method="dialog">
+          <button type="submit" value="close" class="history-detail-close-btn" aria-label="Close report details">
+            <i data-lucide="x"></i>
+          </button>
+        </form>
+      </div>
+      <div id="history-detail-body" class="history-detail-body"></div>
+      <div class="history-detail-footer">
+        <button type="button" id="history-detail-load-btn" class="btn-m3 btn-m3-primary" style="flex:1;">
+          <i data-lucide="eye"></i>
+          <span id="history-detail-load-label">Open in Scanner View</span>
+        </button>
+        <form method="dialog">
+          <button type="submit" value="close" class="btn-m3 btn-m3-secondary" autofocus>
+            <span id="history-detail-close-label">Close</span>
+          </button>
+        </form>
+      </div>
+    </dialog>
+
     <!-- Delete Confirmation Modal (Cloud Firestore) -->
     <div class="modal-overlay" id="delete-confirm-modal" style="display:none;">
       <div class="m3-card modal-card" style="max-width: 380px; text-align: center; border: 1px solid rgba(239, 68, 68, 0.4); box-shadow: 0 20px 40px rgba(0,0,0,0.6), 0 0 30px rgba(239, 68, 68, 0.15);">

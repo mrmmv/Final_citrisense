@@ -2938,15 +2938,211 @@ async function executeAndroidDeleteReport() {
   }
 }
 
+const historyDocsById = new Map();
+let currentViewingHistoryDoc = null;
+let isHistoryDetailDialogBound = false;
+
+function escapeHtml(val) {
+  return String(val ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function pickLangText(field, fallback = '') {
+  if (!field) return fallback;
+  if (typeof field === 'object' && !Array.isArray(field)) {
+    return field[state.lang] || field.en || field.fil || fallback;
+  }
+  return String(field);
+}
+
+function pickLangArray(field) {
+  if (!field) return [];
+  if (Array.isArray(field)) return field;
+  if (typeof field === 'object') {
+    const arr = field[state.lang] || field.en || field.fil;
+    return Array.isArray(arr) ? arr : [];
+  }
+  return [];
+}
+
+function formatScanTimestamp(d, isFil) {
+  let dateObj = null;
+  if (d?.timestamp?.toDate) {
+    dateObj = d.timestamp.toDate();
+  } else if (typeof d?.timestamp === 'number' && d.timestamp > 0) {
+    dateObj = new Date(d.timestamp);
+  } else if (d?.isoDate) {
+    const parsed = new Date(d.isoDate);
+    if (!Number.isNaN(parsed.getTime())) dateObj = parsed;
+  }
+  if (!dateObj || Number.isNaN(dateObj.getTime())) {
+    return isFil ? 'Kamakailan' : 'Recently Saved';
+  }
+  return dateObj.toLocaleDateString(isFil ? 'fil-PH' : 'en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function bindHistoryDetailDialogOnce() {
+  if (isHistoryDetailDialogBound) return;
+  const dialog = document.getElementById('history-detail-dialog');
+  if (!dialog) return;
+
+  dialog.addEventListener('close', () => {
+    dialog.returnValue = '';
+  });
+
+  if (!('closedBy' in HTMLDialogElement.prototype)) {
+    const outside = (e) => {
+      const r = dialog.getBoundingClientRect();
+      return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+    };
+    let pressedOutside = false;
+    dialog.addEventListener('pointerdown', (e) => {
+      pressedOutside = outside(e);
+    });
+    dialog.addEventListener('pointerup', (e) => {
+      if (pressedOutside && outside(e)) dialog.close();
+      pressedOutside = false;
+    });
+  }
+
+  const loadBtn = document.getElementById('history-detail-load-btn');
+  if (loadBtn) {
+    loadBtn.addEventListener('click', () => {
+      if (currentViewingHistoryDoc) {
+        applyScanDataToState(currentViewingHistoryDoc, true);
+        dialog.close();
+        switchScreen('scan');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    });
+  }
+
+  isHistoryDetailDialogBound = true;
+}
+
+function openHistoryDetailDialog(docId) {
+  const d = historyDocsById.get(docId);
+  const dialog = document.getElementById('history-detail-dialog');
+  const titleEl = document.getElementById('history-detail-title');
+  const dateEl = document.getElementById('history-detail-date');
+  const bodyEl = document.getElementById('history-detail-body');
+  const loadLabelEl = document.getElementById('history-detail-load-label');
+  const closeLabelEl = document.getElementById('history-detail-close-label');
+  if (!d || !dialog || !bodyEl) return;
+
+  bindHistoryDetailDialogOnce();
+  currentViewingHistoryDoc = d;
+
+  const isFil = state.lang === 'fil';
+  const score = typeof d.healthScore === 'number' ? d.healthScore : 0;
+  const statusHeading = pickLangText(d.statusText, isFil ? 'Ulat ng Pagsusuri' : 'Scan Report');
+  const summaryDesc = pickLangText(d.summaryText, isFil ? 'Walang karagdagang buod.' : 'No additional summary saved.');
+  const leafStr = pickLangText(d.leafStatus, isFil ? 'Walang datos' : 'No data');
+  const fruitStr = pickLangText(d.fruitStatus, isFil ? 'Walang datos' : 'No data');
+  const leafFindings = pickLangArray(d.leafFindings);
+  const fruitFindings = pickLangArray(d.fruitFindings);
+  const sevRecs = d.severityRecommendations || {};
+  const treatmentTitle = pickLangText(d.treatment?.title, '');
+  const treatmentDesc = pickLangText(d.treatment?.desc, '');
+  const organicRecs = Array.isArray(d.organicRecs) ? d.organicRecs : [];
+  const mainImg = d.image || d.targetImage || (Array.isArray(d.quadrants) ? (d.quadrants.find(q => q && q.img)?.img || '') : '');
+
+  if (dateEl) dateEl.textContent = formatScanTimestamp(d, isFil);
+  if (titleEl) titleEl.textContent = statusHeading;
+  if (loadLabelEl) loadLabelEl.textContent = isFil ? 'Buksan sa Scanner' : 'Open in Scanner View';
+  if (closeLabelEl) closeLabelEl.textContent = isFil ? 'Isara' : 'Close';
+
+  let scoreBadgeCls = 'tag-healthy';
+  if (score === 0) scoreBadgeCls = 'tag-dimmed';
+  else if (score < 55) scoreBadgeCls = 'tag-danger';
+  else if (score < 80) scoreBadgeCls = 'tag-warning';
+
+  const recsHtml = (sevRecs.immediateAction || sevRecs.pruningGuide || sevRecs.treatment || sevRecs.monitoringSchedule)
+    ? `
+      <div class="history-detail-section">
+        <h4>${isFil ? 'Rekomendasyon sa Paggamot' : 'Treatment Protocol'}</h4>
+        ${sevRecs.immediateAction ? `<p><strong>${isFil ? 'Agarang Hakbang:' : 'Immediate Action:'}</strong> ${escapeHtml(pickLangText(sevRecs.immediateAction))}</p>` : ''}
+        ${sevRecs.pruningGuide ? `<p style="margin-top:4px;"><strong>${isFil ? 'Pagpuputol:' : 'Pruning:'}</strong> ${escapeHtml(pickLangText(sevRecs.pruningGuide))}</p>` : ''}
+        ${sevRecs.treatment ? `<p style="margin-top:4px;"><strong>${isFil ? 'Lunas / Spray:' : 'Spray / Treatment:'}</strong> ${escapeHtml(pickLangText(sevRecs.treatment))}</p>` : ''}
+        ${sevRecs.monitoringSchedule ? `<p style="margin-top:4px;"><strong>${isFil ? 'Pagbabantay:' : 'Schedule:'}</strong> ${escapeHtml(pickLangText(sevRecs.monitoringSchedule))}</p>` : ''}
+      </div>
+    `
+    : '';
+
+  const organicHtml = organicRecs.length > 0
+    ? `
+      <div class="history-detail-section">
+        <h4>${isFil ? 'Organikong Lunas' : 'Organic Care Recipes'}</h4>
+        ${organicRecs.map(r => `
+          <p style="margin-bottom:6px;">
+            <strong>${escapeHtml(r.icon || '🌱')} ${escapeHtml(pickLangText(r.title))}</strong><br>
+            ${escapeHtml(pickLangText(r.desc))}
+          </p>
+        `).join('')}
+      </div>
+    `
+    : '';
+
+  bodyEl.innerHTML = `
+    ${mainImg ? `<img src="${escapeHtml(mainImg)}" alt="${escapeHtml(statusHeading)}" class="history-detail-hero-img" />` : ''}
+    <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center;">
+      <span class="badge-tag ${scoreBadgeCls}">${score}% ${isFil ? 'Kalusugan' : 'Health Score'}</span>
+      ${d.severity && d.severity !== 'None' ? `<span class="badge-tag ${d.severity.toLowerCase() === 'severe' ? 'sev-tag-severe' : (d.severity.toLowerCase() === 'moderate' ? 'sev-tag-moderate' : 'sev-tag-mild')}">${escapeHtml(String(d.severity).toUpperCase())}${d.severityPercent ? ` (${escapeHtml(d.severityPercent)}%)` : ''}</span>` : ''}
+      <span class="history-meta-chip"><i data-lucide="map-pin"></i> ${escapeHtml(d.location || 'Philippines')}</span>
+      ${d.rpiName ? `<span class="history-meta-chip"><i data-lucide="cpu"></i> ${escapeHtml(d.rpiName)}</span>` : ''}
+    </div>
+
+    <div class="history-detail-section">
+      <h4>${isFil ? 'Buod ng Pagsusuri' : 'Diagnostic Summary'}</h4>
+      <p>${escapeHtml(summaryDesc)}</p>
+      ${d.severityStage ? `<p style="margin-top:6px; color:#94a3b8;"><strong>${isFil ? 'Yugto:' : 'Stage:'}</strong> ${escapeHtml(d.severityStage)}</p>` : ''}
+    </div>
+
+    <div class="history-detail-section">
+      <h4>🍃 ${isFil ? 'Dahon:' : 'Foliage:'} ${escapeHtml(leafStr)}</h4>
+      ${leafFindings.length ? `<ul>${leafFindings.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '<p>-</p>'}
+      <h4 style="margin-top:10px;">🍋 ${isFil ? 'Bunga:' : 'Fruit:'} ${escapeHtml(fruitStr)}</h4>
+      ${fruitFindings.length ? `<ul>${fruitFindings.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '<p>-</p>'}
+    </div>
+
+    ${recsHtml}
+    ${treatmentDesc ? `
+      <div class="history-detail-section">
+        <h4>${escapeHtml(treatmentTitle || (isFil ? 'Rekomendasyon' : 'Care Action'))}</h4>
+        <p>${escapeHtml(treatmentDesc)}</p>
+      </div>
+    ` : ''}
+    ${organicHtml}
+  `;
+
+  renderIcons();
+  if (!dialog.open) {
+    dialog.showModal();
+  }
+}
+
 window.deleteHistoryReport = openAndroidDeleteModal;
 window.openAndroidDeleteModal = openAndroidDeleteModal;
 window.closeAndroidDeleteModal = closeAndroidDeleteModal;
 window.executeAndroidDeleteReport = executeAndroidDeleteReport;
+window.openHistoryDetailDialog = openHistoryDetailDialog;
 
 function initHistoryListener() {
   const historyListEl = document.getElementById('history-reports-list');
   const countBadge = document.getElementById('history-count-badge');
   if (!historyListEl) return;
+
+  bindHistoryDetailDialogOnce();
 
   // Bind modal buttons once
   const cancelBtn = document.getElementById('cancel-delete-modal-btn');
@@ -2972,12 +3168,29 @@ function initHistoryListener() {
   if (!isAndroidHistoryDelegationAttached) {
     document.addEventListener('click', (e) => {
       const deleteBtn = e.target.closest('.btn-delete-report');
-      if (!deleteBtn) return;
-      const docId = deleteBtn.dataset.id || deleteBtn.getAttribute('data-id');
-      if (!docId) return;
+      if (deleteBtn) {
+        const docId = deleteBtn.dataset.id || deleteBtn.getAttribute('data-id');
+        if (!docId) return;
+        e.preventDefault();
+        e.stopPropagation();
+        openAndroidDeleteModal(docId);
+        return;
+      }
+
+      const card = e.target.closest('.history-card[data-id]');
+      if (card) {
+        const docId = card.dataset.id || card.getAttribute('data-id');
+        if (docId) openHistoryDetailDialog(docId);
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const card = e.target.closest('.history-card[data-id]');
+      if (!card || e.target.closest('.btn-delete-report')) return;
       e.preventDefault();
-      e.stopPropagation();
-      openAndroidDeleteModal(docId);
+      const docId = card.dataset.id || card.getAttribute('data-id');
+      if (docId) openHistoryDetailDialog(docId);
     });
     isAndroidHistoryDelegationAttached = true;
   }
@@ -2990,6 +3203,7 @@ function initHistoryListener() {
     const scansQuery = query(collection(db, 'scans'), orderBy('timestamp', 'desc'));
     unsubscribeHistoryListener = onSnapshot(scansQuery, (snapshot) => {
       const isFil = state.lang === 'fil';
+      historyDocsById.clear();
 
       if (snapshot.empty) {
         if (countBadge) countBadge.textContent = `0 ${isFil ? 'Mga Ulat' : 'Reports'}`;
@@ -3012,7 +3226,9 @@ function initHistoryListener() {
 
       snapshot.forEach(docSnap => {
         const d = docSnap.data();
-        const timeMs = d.timestamp?.toMillis ? d.timestamp.toMillis() : (d.timestamp?.toDate ? d.timestamp.toDate().getTime() : 0);
+        const timeMs = d.timestamp?.toMillis
+          ? d.timestamp.toMillis()
+          : (d.timestamp?.toDate ? d.timestamp.toDate().getTime() : (typeof d.timestamp === 'number' ? d.timestamp : 0));
         const timeBucket = Math.floor(timeMs / (90 * 1000));
         const quadSig = Array.isArray(d.quadrants) 
           ? d.quadrants.map(q => (q && q.img ? q.img.slice(20, 70) : '')).join('|')
@@ -3023,6 +3239,7 @@ function initHistoryListener() {
           return;
         }
         if (quadSig) seenSignatures.add(sig);
+        historyDocsById.set(docSnap.id, d);
         cleanDocs.push({ id: docSnap.id, data: d });
       });
 
@@ -3032,17 +3249,7 @@ function initHistoryListener() {
 
       let html = '';
       cleanDocs.forEach(({ id: docId, data: d }) => {
-        let dateStr = isFil ? 'Kamakailan' : 'Recently Saved';
-        if (d.timestamp && d.timestamp.toDate) {
-          const dateObj = d.timestamp.toDate();
-          dateStr = dateObj.toLocaleDateString(isFil ? 'fil-PH' : 'en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          });
-        }
+        const dateStr = formatScanTimestamp(d, isFil);
 
         const score = typeof d.healthScore === 'number' ? d.healthScore : 0;
         let scoreTagClass = 'tag-healthy';
@@ -3092,7 +3299,7 @@ function initHistoryListener() {
         }
 
         html += `
-          <div class="m3-card history-card" id="history-card-${docId}">
+          <div class="m3-card history-card" id="history-card-${docId}" data-id="${docId}" role="button" tabindex="0">
             <div class="history-card-header">
               <div class="history-date-row">
                 <i data-lucide="calendar"></i>
@@ -3134,6 +3341,10 @@ function initHistoryListener() {
               </span>
               <span class="badge-tag ${score === 0 ? 'tag-dimmed' : 'tag-healthy'}" style="font-size:10px;">
                 🍋 ${fruitStr}
+              </span>
+              <span class="history-tap-hint">
+                <span>${isFil ? 'Tingnan' : 'View Report'}</span>
+                <i data-lucide="chevron-right"></i>
               </span>
             </div>
           </div>
