@@ -2351,12 +2351,22 @@ function loadCachedScanFromStorage() {
 
 async function loadLatestScanFromCloud() {
   try {
-    const scansQuery = query(collection(db, 'scans'), orderBy('timestamp', 'desc'), limit(1));
-    const querySnap = await getDocs(scansQuery);
+    const querySnap = await getDocs(collection(db, 'scans'));
     if (!querySnap.empty) {
-      const latestScan = querySnap.docs[0].data();
-      console.log('[Cloud Startup] Loaded latest scan from Cloud Firestore scans collection:', latestScan);
-      applyScanDataToState(latestScan, true);
+      let latestScan = null;
+      let latestMs = -1;
+      querySnap.forEach((docSnap) => {
+        const d = docSnap.data();
+        const ms = getScanTimeMs(d);
+        if (!latestScan || ms > latestMs) {
+          latestScan = d;
+          latestMs = ms;
+        }
+      });
+      if (latestScan) {
+        console.log('[Cloud Startup] Loaded latest scan from Cloud Firestore scans collection:', latestScan);
+        applyScanDataToState(latestScan, true);
+      }
     }
   } catch (err) {
     console.warn('[Cloud Startup] Fetch latest scan notice:', err);
@@ -2969,17 +2979,37 @@ function pickLangArray(field) {
   return [];
 }
 
-function formatScanTimestamp(d, isFil) {
-  let dateObj = null;
-  if (d?.timestamp?.toDate) {
-    dateObj = d.timestamp.toDate();
-  } else if (typeof d?.timestamp === 'number' && d.timestamp > 0) {
-    dateObj = new Date(d.timestamp);
-  } else if (d?.isoDate) {
-    const parsed = new Date(d.isoDate);
-    if (!Number.isNaN(parsed.getTime())) dateObj = parsed;
+function getScanTimeMs(d) {
+  if (d?.timestamp?.toMillis) {
+    return d.timestamp.toMillis();
   }
-  if (!dateObj || Number.isNaN(dateObj.getTime())) {
+  if (d?.timestamp?.toDate) {
+    return d.timestamp.toDate().getTime();
+  }
+  if (typeof d?.timestamp === 'number' && d.timestamp > 0) {
+    return d.timestamp;
+  }
+  if (typeof d?.timestamp === 'string' && /^\d+$/.test(d.timestamp.trim())) {
+    return Number(d.timestamp.trim());
+  }
+  if (d?.isoDate) {
+    const parsed = Date.parse(d.isoDate);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  if (d?.updatedAtIso) {
+    const parsed = Date.parse(d.updatedAtIso);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  return 0;
+}
+
+function formatScanTimestamp(d, isFil) {
+  const ms = getScanTimeMs(d);
+  if (!ms) {
+    return isFil ? 'Kamakailan' : 'Recently Saved';
+  }
+  const dateObj = new Date(ms);
+  if (Number.isNaN(dateObj.getTime())) {
     return isFil ? 'Kamakailan' : 'Recently Saved';
   }
   return dateObj.toLocaleDateString(isFil ? 'fil-PH' : 'en-US', {
@@ -3200,7 +3230,7 @@ function initHistoryListener() {
   }
 
   try {
-    const scansQuery = query(collection(db, 'scans'), orderBy('timestamp', 'desc'));
+    const scansQuery = collection(db, 'scans');
     unsubscribeHistoryListener = onSnapshot(scansQuery, (snapshot) => {
       const isFil = state.lang === 'fil';
       historyDocsById.clear();
@@ -3220,15 +3250,13 @@ function initHistoryListener() {
         return;
       }
 
-      // Deduplicate history entries
+      // Collect, deduplicate, and sort newest-first (handles mixed Timestamp and integer ms entries)
       const seenSignatures = new Set();
       const cleanDocs = [];
 
       snapshot.forEach(docSnap => {
         const d = docSnap.data();
-        const timeMs = d.timestamp?.toMillis
-          ? d.timestamp.toMillis()
-          : (d.timestamp?.toDate ? d.timestamp.toDate().getTime() : (typeof d.timestamp === 'number' ? d.timestamp : 0));
+        const timeMs = getScanTimeMs(d);
         const timeBucket = Math.floor(timeMs / (90 * 1000));
         const quadSig = Array.isArray(d.quadrants) 
           ? d.quadrants.map(q => (q && q.img ? q.img.slice(20, 70) : '')).join('|')
@@ -3240,8 +3268,10 @@ function initHistoryListener() {
         }
         if (quadSig) seenSignatures.add(sig);
         historyDocsById.set(docSnap.id, d);
-        cleanDocs.push({ id: docSnap.id, data: d });
+        cleanDocs.push({ id: docSnap.id, data: d, timeMs });
       });
+
+      cleanDocs.sort((a, b) => b.timeMs - a.timeMs);
 
       if (countBadge) {
         countBadge.textContent = `${cleanDocs.length} ${isFil ? 'Mga Ulat' : 'Reports'}`;
