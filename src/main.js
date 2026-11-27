@@ -391,7 +391,7 @@ const PRESETS = {
       en: 'Foliar surface exhibits excellent chlorophyll levels, uniform rind glossiness, and no sign of pest or fungal infection.',
       fil: 'Maganda ang kulay ng mga dahon, makinis ang bunga, at walang nakikitang peste o sugat.'
     },
-    img0: '/calamansi_healthy.png',
+    img0: './calamansi_healthy.png',
     leafStatus: { en: 'Healthy', fil: 'Malusog' },
     leafTag: 'tag-healthy',
     leafFindings: {
@@ -438,7 +438,7 @@ const PRESETS = {
       en: 'Critical detection of raised corky brown lesions with yellow halos on leaves and twigs. High risk of orchard epidemic.',
       fil: 'Nakitang may maitim at magaspang na sugat sa mga dahon at sanga. Malubhang impeksiyon ng bakterya.'
     },
-    img0: '/calamansi_canker.png',
+    img0: './calamansi_canker.png',
     leafStatus: { en: 'Canker Lesions', fil: 'May Sugat na Kanser' },
     leafTag: 'tag-danger',
     leafFindings: {
@@ -484,7 +484,7 @@ const PRESETS = {
       en: 'Interveinal yellowing detected on young upper leaves, indicating early Zinc & Iron deficiency in soil.',
       fil: 'Naninilaw ang dahon ngunit berde ang ugat. Kulang sa Iron at Zinc ang halaman.'
     },
-    img0: '/calamansi_healthy.png',
+    img0: './calamansi_healthy.png',
     leafStatus: { en: 'Early Chlorosis', fil: 'Naninilaw na Dahon' },
     leafTag: 'tag-warning',
     leafFindings: {
@@ -530,7 +530,7 @@ const PRESETS = {
       en: 'Foliar pustules consistent with Elsinoë fawcettii alongside localized scale colonies on fruit clusters.',
       fil: 'May mga bukol ng kurikong at maliliit na kuto o scale sa balat ng bunga.'
     },
-    img0: '/calamansi_canker.png',
+    img0: './calamansi_canker.png',
     leafStatus: { en: 'Scab Pustules', fil: 'May Bukol ng Kurikong' },
     leafTag: 'tag-warning',
     leafFindings: {
@@ -772,7 +772,7 @@ function initBrandMenu() {
     logoutBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       signOut(auth).then(() => {
-        window.location.replace('/login.html');
+        window.location.replace('./login.html');
       });
     });
   }
@@ -1002,7 +1002,7 @@ function initPresets() {
 
 function applyPresetData(preset) {
   if (!preset) return;
-  setGunCapturedImage(preset.img0 || '/calamansi_healthy.png');
+  setGunCapturedImage(preset.img0 || './calamansi_healthy.png');
 
   state.analysis.isCalamansi = true;
   state.analysis.healthScore = preset.score;
@@ -2634,7 +2634,7 @@ function initActions() {
   if (logoutBtn) {
     logoutBtn.addEventListener('click', () => {
       signOut(auth).then(() => {
-        window.location.replace('/login.html');
+        window.location.replace('./login.html');
       });
     });
   }
@@ -2693,7 +2693,7 @@ function initAuth() {
       initHistoryListener();
     } else {
       // Direct user immediately to the Login Page on app launch
-      window.location.replace('/login.html');
+      window.location.replace('./login.html');
     }
   });
 }

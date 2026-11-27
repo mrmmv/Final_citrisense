@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   onAuthStateChanged(auth, (user) => {
     if (user) {
-      window.location.replace('/index.html');
+      window.location.replace('./index.html');
     }
   });
 
@@ -179,7 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       try {
         await signInWithEmailAndPassword(auth, email, pass);
-        window.location.replace('/index.html');
+        window.location.replace('./index.html');
       } catch (err) {
         console.warn('[Android Auth Notice]', err);
         submitBtn.disabled = false;
@@ -208,7 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (name && cred.user) {
           await updateProfile(cred.user, { displayName: name });
         }
-        window.location.replace('/index.html');
+        window.location.replace('./index.html');
       } catch (err) {
         console.warn('[Android Auth Register Notice]', err);
         submitBtn.disabled = false;

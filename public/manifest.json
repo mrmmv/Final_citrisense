@@ -3,19 +3,19 @@
   "name": "CitriSense - Bio-AI Citrus Health",
   "icons": [
     {
-      "src": "/citrisense-emblem.png",
+      "src": "./citrisense-emblem.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/citrisense-logo-full.png",
+      "src": "./citrisense-logo-full.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     }
   ],
-  "start_url": "/index.html",
+  "start_url": "./index.html",
   "background_color": "#090e1a",
   "theme_color": "#10b981",
   "display": "standalone",
